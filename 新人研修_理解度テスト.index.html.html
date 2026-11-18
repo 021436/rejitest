@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>新人研修 理解度テスト</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .choice-card {
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeSlideIn 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">新人研修 理解度テスト</h1>
+          <p class="text-xs text-slate-500">3択問題（全17問）・全問正解で合格</p>
+        </div>
+      </div>
+
+      <!-- Mode Switcher -->
+      <nav class="flex bg-slate-100 p-1 rounded-lg" aria-label="モード切替">
+        <button id="tab-quiz" type="button" class="px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-colors bg-white text-indigo-700 shadow-sm">
+          テスト受験
+        </button>
+        <button id="tab-edit" type="button" class="px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors text-slate-600 hover:text-slate-900">
+          問題の編集
+        </button>
+      </nav>
+    </div>
+
+    <!-- Progress Bar (Quiz Mode only) -->
+    <div id="progress-wrapper" class="bg-slate-50 border-t border-slate-100">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4">
+        <span id="progress-text" class="text-xs font-medium text-slate-600 whitespace-nowrap">回答済み: 0 / 5問</span>
+        <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+          <div id="progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden max-w-sm bg-slate-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 animate-fade-in">
+    <span id="toast-icon" class="shrink-0"></span>
+    <span id="toast-message"></span>
+  </div>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- ==================== QUIZ VIEW ==================== -->
+    <section id="view-quiz" class="space-y-6">
+
+      <!-- Score Summary Banner (Hidden until graded) -->
+      <div id="result-summary" class="hidden rounded-2xl border p-5 sm:p-6 shadow-sm animate-fade-in">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span id="result-badge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold"></span>
+              <span class="text-xs text-slate-500" id="result-date"></span>
+            </div>
+            <h2 id="result-title" class="text-xl sm:text-2xl font-bold text-slate-900"></h2>
+            <p id="result-subtitle" class="text-sm text-slate-600"></p>
+          </div>
+          <div class="flex items-center gap-4 bg-white/80 px-5 py-3 rounded-xl border border-slate-200/80 shrink-0 self-start sm:self-center">
+            <div class="text-center">
+              <div class="text-xs text-slate-500 font-medium">スコア</div>
+              <div class="text-2xl sm:text-3xl font-extrabold text-indigo-600">
+                <span id="score-correct">0</span><span class="text-base font-semibold text-slate-400"> / <span id="score-total">0</span></span>
+              </div>
+            </div>
+            <div class="h-10 w-px bg-slate-200"></div>
+            <div class="text-center">
+              <div class="text-xs text-slate-500 font-medium">正答率</div>
+              <div id="score-percent" class="text-2xl sm:text-3xl font-extrabold text-slate-800">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Questions List -->
+      <div id="questions-container" class="space-y-5"></div>
+
+      <!-- Bottom Action Bar -->
+      <div id="quiz-actions" class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p id="action-hint" class="text-xs sm:text-sm text-slate-500">
+          すべての問題を選択したら「採点する」を押してください。
+        </p>
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <button id="btn-reset" type="button" class="px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+            やり直す
+          </button>
+          <button id="btn-grade" type="button" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-sm transition-colors flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            採点する
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== EDIT VIEW ==================== -->
+    <section id="view-edit" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">問題のカスタマイズ</h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-0.5">職場に合わせて問題文や選択肢（A・B・C）、正解、解説を編集・追加できます。</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-restore-defaults" type="button" class="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+            初期サンプルに戻す
+          </button>
+          <button id="btn-add-question" type="button" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            問題を追加
+          </button>
+        </div>
+      </div>
+
+      <!-- Editable Question List -->
+      <div id="edit-container" class="space-y-4"></div>
+    </section>
+
+  </main>
+
+  <!-- Confirmation Modal (Replaces native confirm) -->
+  <div id="modal-overlay" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 animate-fade-in">
+      <h3 id="modal-title" class="text-lg font-bold text-slate-900">確認</h3>
+      <p id="modal-desc" class="text-sm text-slate-600 mt-2 leading-relaxed"></p>
+      <div class="mt-5 flex items-center justify-end gap-2.5">
+        <button id="modal-cancel" type="button" class="px-4 py-2 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+          キャンセル
+        </button>
+        <button id="modal-confirm" type="button" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors">
+          続行する
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'workplace_onboarding_quiz_v3';
+
+    const DEFAULT_QUESTIONS = [
+  {
+    "id": "q1",
+    "category": "① レジ対応前の確認",
+    "question": "お客様が商品をレジにお持ちになりました。最初にすることとして適切なのは？",
+    "choices": {
+      "A": "笑顔で、両手で商品を受け取る",
+      "B": "「ご自宅用ですか？」と尋ねる",
+      "C": "お持ちの商品に間違いがないか、商品名や数量を確認する"
+    },
+    "answer": "A",
+    "explanation": "お客様がレジへ来たら、まずは\"笑顔で、両手で\"受け取り「ありがとうございます。お預かりいたします」と商品を受け取りましょう。自宅用かギフト用を尋ねたり、商品が合っているか、在庫があるかの確認はその後から行いましょう！"
+  },
+  {
+    "id": "q2",
+    "category": "① レジ対応前の確認",
+    "question": "商品を複数点お持ちのお客様がレジに向かってくるのが見えました。対応を始める前に第一にするべきことは？",
+    "choices": {
+      "A": "レジ台の上に余計な備品や商品がないか確認",
+      "B": "近くにレジ応援に入れそうなスタッフがいるか確認",
+      "C": "お客様をお待たせしないよう、レジの操作画面を会計開始前に準備"
+    },
+    "answer": "A",
+    "explanation": "レジの上に余計なものがあると、打ち間違いやレジミスにつながります。お客様が選んでくださった商品を正確にお会計できるよう、レジカウンターの上は常に整理整頓しておくことを心がけましょう！レジ中にお客様が複数並んできて、対応に時間がかかってしまいそうだと判断した時は、インカムでフォローに入れるスタッフを呼んでくださいね。"
+  },
+  {
+    "id": "q3",
+    "category": "① レジ対応前の確認",
+    "question": "商品のバーコードを読み取ったところ、画面に表示された商品名が実物と違うように見えました。どう対応する？",
+    "choices": {
+      "A": "バーコードが読める＝合っているということなので、そのまま進めてよい",
+      "B": "一度バーコードを読み直し、同じ商品名が表示されるか確認する",
+      "C": "本当に商品が正しいのか、判断がつかない場合は社員に確認する"
+    },
+    "answer": "C",
+    "explanation": "バーコードが読み込みできた＝100％商品が合っている、ではありません。\"Aの商品に、手違いでBの商品のバーコードが貼られていた\"というケースも時々ですが、あります。少しでも「これ本当に合ってる？」と思ったら、その時点ですぐに確認しましょう。不安なまま進めてしまうのは絶対にNGです！"
+  },
+  {
+    "id": "q4",
+    "category": "① レジ対応前の確認",
+    "question": "お客様がアプリを持っており、会員証のバーコードをスキャンしました。その後の適切な言葉は？",
+    "choices": {
+      "A": "「クーポンはございますか？」",
+      "B": "「今月はお誕生日ではございませんか？」",
+      "C": "「ポイントは利用されますか？」"
+    },
+    "answer": "B",
+    "explanation": "会員証のバーコードをスキャンできたら、まずは\"お誕生月かどうか\"を確認しましょう。なぜなら、使えるクーポンが複数あっても\"バースデークーポンは誕生月にしか使えない\"ためです。誕生月ではなかった場合に、改めて新規入会クーポンやシーズンチケットの有無を尋ねましょう。アプリのポイントは、お会計で直接利用できるものではありません。そのため選択肢Cの文言は不適切です。"
+  },
+  {
+    "id": "q5",
+    "category": "② 支払い方法の判断",
+    "question": "レジを支払いの画面まで進めて、お客様から「クレジットカードでお願いします」と言われました。そのあとに操作する端末は？",
+    "choices": {
+      "A": "自社レジ",
+      "B": "CAT端末",
+      "C": "Pay端末"
+    },
+    "answer": "B",
+    "explanation": "クレジットカード決済にはCAT端末を使用します。自社レジだけで会計が完了するわけではありません。支払い方法によって使用する端末が異なるため、それぞれの役割をしっかり覚えておきましょう！"
+  },
+  {
+    "id": "q6",
+    "category": "② 支払い方法の判断",
+    "question": "お客様から「交通系ICカードで支払いたい」と言われました。最初に操作する端末は？",
+    "choices": {
+      "A": "CAT端末",
+      "B": "Pay端末",
+      "C": "自社レジ"
+    },
+    "answer": "A",
+    "explanation": "交通系ICカードは電子マネーに分類されます。電子マネー決済はCAT端末を使います。クレジットカードと同じ端末を使用しますが、決済方法の選択を間違えないように注意しましょう！"
+  },
+  {
+    "id": "q7",
+    "category": "② 支払い方法の判断",
+    "question": "お客様から「QUICPayで支払いたい」と言われました。最初に操作する端末は？",
+    "choices": {
+      "A": "CAT端末",
+      "B": "Pay端末",
+      "C": "自社レジ"
+    },
+    "answer": "A",
+    "explanation": "QUICPayは電子マネーに分類されます。名前に Payと付いていますが、決済はCAT端末で行うので気を付けましょう！(QUICPayはコード決済ではないため)"
+  },
+  {
+    "id": "q8",
+    "category": "② 支払い方法の判断",
+    "question": "お客様から「楽天ペイでお願いします」と言われました。最初に操作する端末は？",
+    "choices": {
+      "A": "CAT端末",
+      "B": "Pay端末",
+      "C": "自社レジ"
+    },
+    "answer": "B",
+    "explanation": "PayPayなどの、こちらがお客様のQRコードを読み取る決済はPay端末を使用します。CAT端末で対応するクレジットカード・電子マネー決済とは使用する端末が異なります。お客様の支払い方法を確認してから、正しい端末を使用しましょう！"
+  },
+  {
+    "id": "q9",
+    "category": "② 支払い方法の判断",
+    "question": "お客様から「AEON Payでお願いします」と言われました。最初に操作する端末は？",
+    "choices": {
+      "A": "自社レジ",
+      "B": "Pay端末",
+      "C": "CAT端末"
+    },
+    "answer": "C",
+    "explanation": "AEON Payは支払い種別的にはコード決済ですが、決済にはCAT端末を使います。コード決済＝Pay端末で決済とイメージして覚えると思いますが、AEON Payは例外なので注意しましょう。CAT端末の中にある『コード決済』を選んでください！"
+  },
+  {
+    "id": "q10",
+    "category": "③ CAT端末の操作",
+    "question": "クレジットカードでの決済を行う際、最初に確認するべきことは？",
+    "choices": {
+      "A": "自社レジに表示されている会計金額と、端末に入力する金額が一致しているか",
+      "B": "お客様が使用するクレジットカードの有効期限が切れていないか",
+      "C": "お客様のクレジットカードのブランド(銘柄)がどこのものか"
+    },
+    "answer": "A",
+    "explanation": "すべての決済方法で共通ですが、金額の入力間違いは起こさないよう注意しましょう。金額を間違えたまま決済してしまうと、後から訂正が必要になり、お客様にご迷惑がかかります。決済を進める前に、金額が正しいことを\"必ず\"確認しましょう！"
+  },
+  {
+    "id": "q11",
+    "category": "③ CAT端末の操作",
+    "question": "クレジットカード決済を行う際、端末側から暗証番号の入力を求められました。適切な対応は？",
+    "choices": {
+      "A": "「サインでも決済可能ですよ」とお伝えする",
+      "B": "お客様ご自身で入力していただく",
+      "C": "お客様に暗証番号を口頭で教えていただき、スタッフが入力する"
+    },
+    "answer": "B",
+    "explanation": "クレジットカードの暗証番号は、お客様ご自身で入力していただくものです。スタッフが暗証番号を尋ねたり、代わりに入力したりすることは絶対にNGです。また、ICカードタイプのクレジットカード取引では暗証番号入力が原則となっており、暗証番号をサインで代替することは原則できません。お客様の大切な個人情報を守り、適切な対応を心がけましょう！"
+  },
+  {
+    "id": "q12",
+    "category": "③ CAT端末の操作",
+    "question": "端末で決済操作を行った後、次に確認するべきことは？",
+    "choices": {
+      "A": "決済が完了したことを端末の画面や控えなどで確認する",
+      "B": "お客様が財布をしまわれたことを確認してから、自社レジの操作を行う",
+      "C": "決済が完了したかどうかに関係なく、自社レジへの入力を先に進める"
+    },
+    "answer": "A",
+    "explanation": "端末で決済操作を行っただけでは、必ずしも決済が完了したとは限りません。エラー時にも控えは出てくるので、控えが出てきた＝決済完了ではないです。端末の画面表示や加盟店控えなどで、決済が正常に完了したことを確認しましょう。「控えが出てきたから」という理由だけで決済完了と判断しないように注意してください。決済状況が不明なまま次の操作へ進むと、二重決済や会計ミスにつながる可能性があります。"
+  },
+  {
+    "id": "q13",
+    "category": "③ CAT端末の操作",
+    "question": "クレジットカード決済を行おうとしたところ、エラーが表示されました。適切な対応は？",
+    "choices": {
+      "A": "エラーが出た＝決済できていないので、すぐに同じ金額でもう一度決済する",
+      "B": "エラーが表示されたので、別の決済方法に変更して会計を進める",
+      "C": "端末の画面表示や決済状況をよく確認し、必要に応じて社員に相談する"
+    },
+    "answer": "C",
+    "explanation": "エラーが表示された場合、必ずしも決済が失敗しているとは限りません。エラーの内容によって対応も異なるため、自己判断で再決済や決済方法の変更を行わず、店舗で定められた手順に従いましょう。操作や判断に迷った際は社員に相談しましょう。決済状況を確認せずに再度操作すると、二重決済につながる可能性があります。"
+  },
+  {
+    "id": "q14",
+    "category": "④ QRコード決済端末の操作",
+    "question": "お客様から「PayPayで支払いたい」と言われました。最初に確認・操作することとして適切なのは？",
+    "choices": {
+      "A": "お客様のスマートフォンに表示されたQRコードを読み取る",
+      "B": "端末で『決済』を選択し、決済金額を入力する",
+      "C": "自社レジで会計金額を確定し、レシートを発行する"
+    },
+    "answer": "B",
+    "explanation": "QRコード決済を行う際は、まず端末で支払方法を選択し、決済金額を入力します。打ち間違いなどを防ぐため、自社レジの操作は端末での決済が完了してから行いましょう。"
+  },
+  {
+    "id": "q15",
+    "category": "④ QRコード決済端末の操作",
+    "question": "端末に決済金額を入力する際、最も注意するべきことは？",
+    "choices": {
+      "A": "お客様が支払いやすいよう、端数を切り捨てて入力する",
+      "B": "自社レジに表示されている会計金額と、端末に入力する金額が一致しているか確認する",
+      "C": "金額の入力に時間がかからないよう、前のお客様の決済金額を参考に入力する"
+    },
+    "answer": "B",
+    "explanation": "どの決済方法でも、金額の入力間違いには注意が必要です。自社レジの会計が示している金額と、端末の決済金額が一致していることを確認してから、お客様に決済していただきましょう。金額を間違えて決済してしまうと、お客様にご迷惑をおかけするだけでなく、返金や再決済などの対応も必要になり、後ろのお客様も待たせてしまうなど二次トラブルにつながります。"
+  },
+  {
+    "id": "q16",
+    "category": "④ QRコード決済端末の操作",
+    "question": "お客様のQRコードを読み取った後、次に確認するべきことは？",
+    "choices": {
+      "A": "お客様のスマートフォンから決済音が鳴ったら決済は完了しているので、すぐに自社レジの操作へ移ってよい",
+      "B": "決済が完了したかどうかに関係なく、時短のために自社レジへの入力を先に進めておく",
+      "C": "Pay端末の画面表示などで、決済が正常に完了したことを確認する"
+    },
+    "answer": "C",
+    "explanation": "QRコードを読み取っただけでは、決済が完了したとは限りません。端末の画面表示や控えなどで、決済が正常に完了していることを確認しましょう。決済状況を確認しないまま次の操作へ進むと、会計ミスにつながる可能性があります。控えが印字されても、エラーが発生している場合があるため、控えが印字されたことだけで判断しないように注意してください！"
+  },
+  {
+    "id": "q17",
+    "category": "④ QRコード決済端末の操作",
+    "question": "PayPayの決済を行おうとしたところ、エラーが表示されました。適切な対応は？",
+    "choices": {
+      "A": "エラーが出た＝決済はされていないので、すぐにもう一度読み取る",
+      "B": "お客様のスマートフォンに決済履歴が残っていないか確認してもらい、履歴が確認できた場合は自社レジの操作へ進む",
+      "C": "端末の画面表示や控えで決済状況を確認し、必要に応じて社員に相談する"
+    },
+    "answer": "C",
+    "explanation": "エラーが表示された場合、必ずしも決済が失敗しているとは限りません。決済状況を確認せずに再度操作すると、二重決済につながる可能性があります。お客様のスマートフォンに決済履歴が表示されていても、それだけで決済完了と判断せず、端末の取引履歴や控えなど店舗側で確認できる情報を確認しましょう。自己判断で進めず、端末の画面表示を確認し、判断が難しい場合は社員に相談しましょう。"
+  }
+];
+
+    // App State
+    let state = {
+      mode: 'quiz', // 'quiz' | 'edit'
+      questions: [],
+      selected: {}, // { [questionId]: 'A' | 'B' | 'C' }
+      graded: false,
+      unansweredIds: new Set()
+    };
+
+    let modalCallback = null;
+
+    // Load & Save
+    function loadQuestions() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        // Ignore storage errors in restricted contexts
+      }
+      return JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+    }
+
+    function saveQuestions() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.questions));
+      } catch (e) {
+        // Ignore storage errors
+      }
+    }
+
+    // Toast Helper
+    let toastTimer = null;
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toast-icon');
+      const msg = document.getElementById('toast-message');
+      msg.textContent = message;
+
+      if (type === 'warn') {
+        icon.innerHTML = '<svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>';
+      } else if (type === 'success') {
+        icon.innerHTML = '<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+      } else {
+        icon.innerHTML = '<svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>';
+      }
+
+      toast.classList.remove('hidden');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3200);
+    }
+
+    // Modal Helper
+    function openModal(title, desc, confirmLabel, onConfirm) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-desc').textContent = desc;
+      document.getElementById('modal-confirm').textContent = confirmLabel;
+      modalCallback = onConfirm;
+      document.getElementById('modal-overlay').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.add('hidden');
+      modalCallback = null;
+    }
+
+    // Escape HTML
+    function esc(str) {
+      const div = document.createElement('div');
+      div.textContent = str ?? '';
+      return div.innerHTML;
+    }
+
+    // Update Progress Bar
+    function updateProgress() {
+      const total = state.questions.length;
+      const answered = state.questions.filter(q => state.selected[q.id]).length;
+      const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
+      document.getElementById('progress-text').textContent = `回答済み: ${answered} / ${total}問`;
+      document.getElementById('progress-bar').style.width = `${pct}%`;
+    }
+
+    // Render Quiz Mode
+    function renderQuiz() {
+      const container = document.getElementById('questions-container');
+      const summaryEl = document.getElementById('result-summary');
+      const btnGrade = document.getElementById('btn-grade');
+      const actionHint = document.getElementById('action-hint');
+
+      updateProgress();
+
+      if (state.questions.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+            <p class="text-slate-600 text-sm">問題が登録されていません。「問題の編集」タブから問題を追加してください。</p>
+          </div>`;
+        btnGrade.disabled = true;
+        btnGrade.classList.add('opacity-50', 'cursor-not-allowed');
+        summaryEl.classList.add('hidden');
+        return;
+      }
+
+      btnGrade.disabled = false;
+      btnGrade.classList.remove('opacity-50', 'cursor-not-allowed');
+
+      // Render Summary if graded
+      if (state.graded) {
+        let correctCount = 0;
+        state.questions.forEach(q => {
+          if (state.selected[q.id] === q.answer) correctCount++;
+        });
+        const total = state.questions.length;
+        const percent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+        const passed = total > 0 && correctCount === total;
+
+        summaryEl.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-200', 'bg-amber-50', 'border-amber-200', 'bg-rose-50', 'border-rose-200');
+        summaryEl.classList.add(passed ? 'bg-emerald-50' : 'bg-rose-50', passed ? 'border-emerald-200' : 'border-rose-200');
+
+        const badge = document.getElementById('result-badge');
+        badge.className = passed
+          ? 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white'
+          : 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white';
+        badge.textContent = passed ? '合格（全問正解）' : '不合格';
+
+        document.getElementById('result-date').textContent = '採点完了';
+        document.getElementById('result-title').textContent = passed
+          ? '全問正解・合格です！お疲れさまでした。'
+          : '不合格です（全問正解で合格となります）';
+        document.getElementById('result-subtitle').textContent = passed
+          ? 'レジ対応の基本事項がしっかり身についています。'
+          : 'すべて基本項目です。不正解の問題の解説を確認し、もう一度挑戦してください。';
+        document.getElementById('score-correct').textContent = correctCount;
+        document.getElementById('score-total').textContent = total;
+        document.getElementById('score-percent').textContent = `${percent}%`;
+
+        btnGrade.classList.add('hidden');
+        actionHint.textContent = '各問題の正解・不正解と解説を確認できます。';
+      } else {
+        summaryEl.classList.add('hidden');
+        btnGrade.classList.remove('hidden');
+        actionHint.textContent = 'すべての問題を選択したら「採点する」を押してください。';
+      }
+
+      // Render Questions
+      container.innerHTML = state.questions.map((q, idx) => {
+        const userAns = state.selected[q.id];
+        const isCorrect = state.graded && userAns === q.answer;
+        const isWrong = state.graded && userAns !== q.answer;
+        const isUnansweredHighlight = !state.graded && state.unansweredIds.has(q.id);
+
+        let cardBorder = 'border-slate-200';
+        if (isCorrect) cardBorder = 'border-emerald-300 ring-1 ring-emerald-200';
+        else if (isWrong) cardBorder = 'border-rose-300 ring-1 ring-rose-200';
+        else if (isUnansweredHighlight) cardBorder = 'border-amber-400 ring-2 ring-amber-200';
+
+        const statusBadge = state.graded
+          ? isCorrect
+            ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                 正解
+               </span>`
+            : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
+                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                 不正解
+               </span>`
+          : isUnansweredHighlight
+            ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">未回答</span>`
+            : '';
+
+        const choicesHtml = ['A', 'B', 'C'].map(key => {
+          const isSelected = userAns === key;
+          const isAnswerKey = q.answer === key;
+
+          let choiceClasses = 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40';
+          let badgeClasses = 'bg-slate-100 text-slate-700 border-slate-200';
+          let rightIndicator = '';
+
+          if (!state.graded) {
+            if (isSelected) {
+              choiceClasses = 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600';
+              badgeClasses = 'bg-indigo-600 text-white border-indigo-600';
+            }
+          } else {
+            if (isAnswerKey) {
+              choiceClasses = 'border-emerald-500 bg-emerald-50/80';
+              badgeClasses = 'bg-emerald-600 text-white border-emerald-600';
+              rightIndicator = `<span class="text-xs font-bold text-emerald-700 shrink-0 ml-auto">正解</span>`;
+            } else if (isSelected && !isAnswerKey) {
+              choiceClasses = 'border-rose-400 bg-rose-50/80';
+              badgeClasses = 'bg-rose-600 text-white border-rose-600';
+              rightIndicator = `<span class="text-xs font-bold text-rose-700 shrink-0 ml-auto">あなたの回答</span>`;
+            } else {
+              choiceClasses = 'border-slate-200 bg-slate-50/50 opacity-75';
+            }
+          }
+
+          return `
+            <button
+              type="button"
+              data-qid="${esc(q.id)}"
+              data-choice="${key}"
+              ${state.graded ? 'disabled' : ''}
+              class="choice-btn choice-card w-full text-left p-3.5 sm:p-4 rounded-xl border flex items-start sm:items-center gap-3 ${choiceClasses} ${state.graded ? 'cursor-default' : 'cursor-pointer'}"
+            >
+              <span class="w-7 h-7 rounded-lg border text-xs font-bold flex items-center justify-center shrink-0 ${badgeClasses}">
+                ${key}
+              </span>
+              <span class="text-sm sm:text-[15px] text-slate-800 leading-snug font-medium">
+                ${esc(q.choices[key])}
+              </span>
+              ${rightIndicator}
+            </button>
+          `;
+        }).join('');
+
+        const explanationHtml = state.graded ? `
+          <div class="mt-4 pt-3.5 border-t border-slate-100 text-xs sm:text-sm text-slate-600 bg-slate-50 rounded-xl p-3.5">
+            <span class="font-bold text-slate-800">解説：</span>${esc(q.explanation || `正解は「${q.answer}」です。`)}
+          </div>
+        ` : '';
+
+        return `
+          <article id="card-${esc(q.id)}" class="bg-white rounded-2xl border ${cardBorder} p-5 sm:p-6 shadow-sm transition-all">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">問 ${idx + 1}</span>
+                ${q.category ? `<span class="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">${esc(q.category)}</span>` : ''}
+              </div>
+              ${statusBadge}
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900 leading-relaxed mb-4">
+              ${esc(q.question)}
+            </h3>
+            <div class="space-y-2.5">
+              ${choicesHtml}
+            </div>
+            ${explanationHtml}
+          </article>
+        `;
+      }).join('');
+    }
+
+    // Render Edit Mode
+    function renderEdit() {
+      const container = document.getElementById('edit-container');
+      if (state.questions.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+            <p class="text-slate-600 text-sm">問題がありません。「問題を追加」ボタンから作成してください。</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = state.questions.map((q, idx) => `
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4" data-edit-id="${esc(q.id)}">
+          <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <span class="text-sm font-bold text-indigo-700">問 ${idx + 1}</span>
+            <button type="button" data-delete-id="${esc(q.id)}" class="btn-delete-q text-xs font-semibold text-rose-600 hover:text-rose-800 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors">
+              削除する
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-1">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">カテゴリ</label>
+              <input type="text" data-field="category" data-id="${esc(q.id)}" value="${esc(q.category)}"
+                class="edit-input w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="例: ビジネスマナー" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">正解の選択肢</label>
+              <select data-field="answer" data-id="${esc(q.id)}"
+                class="edit-input w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-semibold">
+                <option value="A" ${q.answer === 'A' ? 'selected' : ''}>選択肢 A</option>
+                <option value="B" ${q.answer === 'B' ? 'selected' : ''}>選択肢 B</option>
+                <option value="C" ${q.answer === 'C' ? 'selected' : ''}>選択肢 C</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">問題文</label>
+            <textarea rows="2" data-field="question" data-id="${esc(q.id)}"
+              class="edit-input w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">${esc(q.question)}</textarea>
+          </div>
+
+          <div class="space-y-2">
+            <label class="block text-xs font-semibold text-slate-600">選択肢</label>
+            ${['A', 'B', 'C'].map(key => `
+              <div class="flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0">${key}</span>
+                <input type="text" data-field="choice_${key}" data-id="${esc(q.id)}" value="${esc(q.choices[key])}"
+                  class="edit-input w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="選択肢${key}の内容" />
+              </div>
+            `).join('')}
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">解説（採点後に表示）</label>
+            <input type="text" data-field="explanation" data-id="${esc(q.id)}" value="${esc(q.explanation)}"
+              class="edit-input w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="なぜその選択肢が正解なのかを記入" />
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Switch Mode
+    function switchMode(mode) {
+      state.mode = mode;
+      const tabQuiz = document.getElementById('tab-quiz');
+      const tabEdit = document.getElementById('tab-edit');
+      const viewQuiz = document.getElementById('view-quiz');
+      const viewEdit = document.getElementById('view-edit');
+      const progressWrapper = document.getElementById('progress-wrapper');
+
+      if (mode === 'quiz') {
+        tabQuiz.className = 'px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-colors bg-white text-indigo-700 shadow-sm';
+        tabEdit.className = 'px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors text-slate-600 hover:text-slate-900';
+        viewQuiz.classList.remove('hidden');
+        viewEdit.classList.add('hidden');
+        progressWrapper.classList.remove('hidden');
+        renderQuiz();
+      } else {
+        tabEdit.className = 'px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-colors bg-white text-indigo-700 shadow-sm';
+        tabQuiz.className = 'px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors text-slate-600 hover:text-slate-900';
+        viewEdit.classList.remove('hidden');
+        viewQuiz.classList.add('hidden');
+        progressWrapper.classList.add('hidden');
+        renderEdit();
+      }
+    }
+
+    // Grade Action
+    function gradeQuiz() {
+      const unanswered = state.questions.filter(q => !state.selected[q.id]);
+      if (unanswered.length > 0) {
+        state.unansweredIds = new Set(unanswered.map(q => q.id));
+        renderQuiz();
+        const firstCard = document.getElementById(`card-${unanswered[0].id}`);
+        if (firstCard) {
+          firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        showToast(`未回答の問題が ${unanswered.length}問 あります。すべて選択してください。`, 'warn');
+        return;
+      }
+
+      state.unansweredIds.clear();
+      state.graded = true;
+      renderQuiz();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showToast('採点が完了しました！', 'success');
+    }
+
+    // Reset Action
+    function resetQuiz() {
+      state.selected = {};
+      state.graded = false;
+      state.unansweredIds.clear();
+      renderQuiz();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Event Listeners
+    document.getElementById('tab-quiz').addEventListener('click', () => switchMode('quiz'));
+    document.getElementById('tab-edit').addEventListener('click', () => switchMode('edit'));
+    document.getElementById('btn-grade').addEventListener('click', gradeQuiz);
+    document.getElementById('btn-reset').addEventListener('click', resetQuiz);
+
+    // Choice selection (Event Delegation)
+    document.getElementById('questions-container').addEventListener('click', (e) => {
+      if (state.graded) return;
+      const btn = e.target.closest('.choice-btn');
+      if (!btn) return;
+      const qid = btn.dataset.qid;
+      const choice = btn.dataset.choice;
+      state.selected[qid] = choice;
+      state.unansweredIds.delete(qid);
+      renderQuiz();
+    });
+
+    // Edit inputs (Event Delegation)
+    document.getElementById('edit-container').addEventListener('input', (e) => {
+      const el = e.target.closest('.edit-input');
+      if (!el) return;
+      const id = el.dataset.id;
+      const field = el.dataset.field;
+      const q = state.questions.find(item => item.id === id);
+      if (!q) return;
+
+      if (field.startsWith('choice_')) {
+        const key = field.split('_')[1];
+        q.choices[key] = el.value;
+      } else {
+        q[field] = el.value;
+      }
+      saveQuestions();
+    });
+
+    document.getElementById('edit-container').addEventListener('change', (e) => {
+      const el = e.target.closest('select.edit-input');
+      if (!el) return;
+      const id = el.dataset.id;
+      const q = state.questions.find(item => item.id === id);
+      if (!q) return;
+      q.answer = el.value;
+      saveQuestions();
+    });
+
+    // Delete Question (Event Delegation)
+    document.getElementById('edit-container').addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-delete-q');
+      if (!btn) return;
+      const id = btn.dataset.deleteId;
+      openModal(
+        '問題の削除',
+        'この問題を削除してもよろしいですか？',
+        '削除する',
+        () => {
+          state.questions = state.questions.filter(q => q.id !== id);
+          delete state.selected[id];
+          saveQuestions();
+          renderEdit();
+          showToast('問題を削除しました');
+        }
+      );
+    });
+
+    // Add Question
+    document.getElementById('btn-add-question').addEventListener('click', () => {
+      const newId = 'q_' + Date.now();
+      state.questions.push({
+        id: newId,
+        category: '新しいカテゴリ',
+        question: 'ここに新しい問題文を入力してください。',
+        choices: {
+          A: '選択肢Aの内容',
+          B: '選択肢Bの内容',
+          C: '選択肢Cの内容'
+        },
+        answer: 'A',
+        explanation: '正解の解説をここに入力します。'
+      });
+      state.graded = false;
+      saveQuestions();
+      renderEdit();
+      showToast('新しい問題を追加しました', 'success');
+    });
+
+    // Restore Default Questions
+    document.getElementById('btn-restore-defaults').addEventListener('click', () => {
+      openModal(
+        '初期サンプルに戻す',
+        '現在編集している問題はすべて初期サンプルに置き換わります。よろしいですか？',
+        '元に戻す',
+        () => {
+          state.questions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+          state.selected = {};
+          state.graded = false;
+          state.unansweredIds.clear();
+          saveQuestions();
+          renderEdit();
+          showToast('初期サンプルに戻しました', 'success');
+        }
+      );
+    });
+
+    // Modal Controls
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('modal-confirm').addEventListener('click', () => {
+      if (modalCallback) modalCallback();
+      closeModal();
+    });
+    document.getElementById('modal-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'modal-overlay') closeModal();
+    });
+
+    // Initialize
+    state.questions = loadQuestions();
+    renderQuiz();
+  </script>
+</body>
+</html>
